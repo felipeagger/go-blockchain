@@ -1,2 +1,2 @@
 # go-blockchain
-A Simple Golang BlockChain
+A Simple Golang Proof of Work Sha256 BlockChain
