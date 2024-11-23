@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html ng-app="BlockchainClient">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Dashboard</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #121212;
+            color: #f0e68c; /* cor do texto em tom de amarelo */
+        }
+
+        .form-container {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .blocks-container {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            width: 950px;
+        }
+
+        .form-group label {
+            color: #f0e68c; /* Amarelo */
+        }
+
+        .btn-primary {
+            background-color: #ffcc00; /* Amarelo escuro */
+            border-color: #ffcc00;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background-color: #ffdd44;
+            border-color: #ffdd44;
+        }
+
+        .block-grid {
+            max-height: 400px;
+            width: 900px;
+            overflow-y: auto;
+        }
+
+     .details-panel {
+         position: fixed;
+         bottom: 0;
+         left: 0;
+         right: 0;
+         background-color: #333;
+         color: #ffc107;
+         padding: 20px;
+         border-top: 2px solid #ffc107;
+         box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.5);
+     }
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .panel-content {
+        margin-top: 10px;
+    }
+    .table-striped > tbody > tr:nth-of-type(odd) {
+        background-color: #444;
+    }
+
+    .details-panel table th,
+    .details-panel table td {
+        color: white;
+    }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+</head>
+
+<body ng-controller="BlockchainController">
+<div class="container mt-5">
+    <div class="row">
+        <!-- Formulário de Transações -->
+        <div class="col-md-4">
+            <div class="form-container">
+                <h3 class="text-center">Enviar Nova Transação</h3>
+                <form ng-submit="submitTransaction()">
+                    <div class="form-group">
+                        <label for="seed">Origem (Seed):</label>
+                        <input type="text" class="form-control" id="seed" ng-model="transaction.seed" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="to">Destino:</label>
+                        <input type="text" class="form-control" id="to" ng-model="transaction.to" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Quantidade:</label>
+                        <input type="number" class="form-control" id="amount" ng-model="transaction.amount" step="any" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Enviar Transação</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Grid de Blocos Recentes -->
+        <div class="col-md-8">
+            <div class="blocks-container">
+                <h3 class="text-center">Blocos Recentes</h3>
+                <div class="block-grid">
+                    <table class="table table-dark table-hover">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Hash</th>
+                            <th>Data</th>
+                            <th>Transações</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr ng-repeat="block in blocks" ng-click="selectBlock(block)" style="cursor: pointer;">
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ block.hash }}</td>
+                            <td>{{ block.timestamp | date:'yyyy-MM-dd HH:mm:ss' }}</td>
+                            <td>{{ block.transactions.length }}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel de Detalhes no Bottom -->
+        <div ng-if="selectedBlock" class="details-panel">
+            <div class="panel-header">
+                <h4>Detalhes do Bloco</h4>
+                <button type="button" class="btn btn-secondary btn-sm float-right" ng-click="closeDetails()">Fechar</button>
+            </div>
+            <div class="panel-content">
+                <p><strong>Hash:</strong> {{ selectedBlock.hash }}</p>
+                <p><strong>Nonce:</strong> {{ selectedBlock.nonce }}</p>
+                <p><strong>Data:</strong> {{ selectedBlock.timestamp | date:'yyyy-MM-dd HH:mm:ss' }}</p>
+                <p><strong>Transações:</strong></p>
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>ID</th>
+                        <th>Data</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr ng-repeat="transaction in selectedBlock.transactions" ng-click="selectTr(transaction)" style="cursor: pointer;">
+                        <td>{{ $index + 1 }}</td>
+                        <td>{{ transaction.id }}</td>
+                        <td>{{ transaction.timestamp | date:'yyyy-MM-dd HH:mm:ss' }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Painel de Detalhes da TR no Bottom Right -->
+        <div ng-if="selectedTr" class="details-panel">
+            <div class="panel-header">
+                <h4>Detalhes da Transação</h4>
+                <button type="button" class="btn btn-secondary btn-sm float-right" ng-click="closeDetailsTr()">Fechar</button>
+            </div>
+            <div class="panel-content">
+                <p><strong>ID:</strong> {{ selectedTr.id }}</p>
+                <p><strong>Data:</strong> {{ selectedTr.timestamp | date:'yyyy-MM-dd HH:mm:ss' }}</p>
+                <p><strong>Inputs:</strong></p>
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Origem</th>
+                        <th>Assinatura</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr ng-repeat="input in selectedTr.inputs">
+                        <td>{{ $index + 1 }}</td>
+                        <td>{{ input.pubKey }}</td>
+                        <td>{{ input.signature }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <p><strong>Outputs:</strong></p>
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Destino</th>
+                        <th>Quantidade</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr ng-repeat="output in selectedTr.outputs">
+                        <td>{{ $index + 1 }}</td>
+                        <td>{{ output.pubKey }}</td>
+                        <td>{{ output.value / 100000000 }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // AngularJS Module
+    var app = angular.module('BlockchainClient', []);
+
+    // AngularJS Controller
+    app.controller('BlockchainController', function ($scope, $http, $interval) {
+        $scope.transaction = {
+            seed: '',
+            to: '',
+            amount: 0
+        };
+
+        $scope.selectedBlock = null;
+        $scope.selectedTr = null;
+
+        // Função para selecionar um bloco e exibir os detalhes
+        $scope.selectBlock = function(block) {
+            $scope.selectedBlock = block; // Armazena o bloco selecionado
+        };
+
+        // Função para fechar o painel de detalhes
+        $scope.closeDetails = function() {
+            $scope.selectedBlock = null; // Limpa o bloco selecionado para ocultar o painel
+        };
+
+        $scope.selectTr = function(tr) {
+            $scope.selectedTr = tr;
+        };
+
+        $scope.closeDetailsTr = function() {
+            $scope.selectedTr = null;
+        };
+
+        // Enviar transação para o servidor
+        $scope.submitTransaction = function () {
+                $http({
+                    method: 'POST',
+                    url: '/api/transaction',
+                    data: $scope.transaction,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(function (response) {
+                    alert('Transação enviada com sucesso!');
+                    $scope.transaction = { seed: '', to: '', amount: 0 };
+                }, function (error) {
+                    alert('Erro ao enviar transação!');
+                });
+        };
+
+        // Atualizar blocos a cada segundo
+        $scope.blocks = [];
+        function loadBlocks() {
+            $http.get('/api/blocks')
+                .then(function (response) {
+                    //$scope.blocks = response.data;
+                    $scope.blocks = response.data.sort(function (a, b) {
+                        return new Date(b.timestamp) - new Date(a.timestamp);
+                    });
+                }, function (error) {
+                    console.error('Erro ao carregar blocos:', error);
+                });
+        }
+
+        loadBlocks();
+        $interval(loadBlocks, 2000); // Atualiza a cada 2 segundo
+    });
+</script>
+</body>
+
+</html>

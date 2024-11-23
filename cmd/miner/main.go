@@ -4,17 +4,19 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	blc "github.com/felipeagger/go-blockchain/blockchain"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
-	"runtime"
+	"strconv"
 	"strings"
-	"time"
+
+	blc "github.com/felipeagger/go-blockchain/blockchain"
+	"github.com/felipeagger/go-blockchain/wallet"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
-	serverPort = blc.GetEnv("PORT", "8765")
-	//Difficulty, _ = strconv.Atoi(blc.GetEnv("DIFFICULTY", "5"))
+	serverPort    = blc.GetEnv("PORT", "8765")
+	Difficulty, _ = strconv.Atoi(blc.GetEnv("DIFFICULTY", "5"))
+	blockchain    *blc.Blockchain
 )
 
 func main() {
@@ -34,12 +36,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = blc.Synchronize(db, nodePool, *difficulty)
-	if err != nil {
-		log.Println(err)
-	}
-
-	var blockchain *blc.Blockchain
 	if *createGenesisBlock {
 		fmt.Println("Creating genesis block...")
 		blockchain, err = blc.CreateBlockchain(db, *difficulty)
@@ -50,61 +46,82 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tests(db, blockchain)
+	err = blc.Synchronize(db, nodePool, *difficulty)
+	if err != nil {
+		log.Println(err)
+	}
+
+	go api()
+
+	//tests(db, blockchain)
+
+	isValid := blockchain.IsValid()
+	fmt.Println(isValid)
 
 	startServer(blockchain, serverPort)
 }
 
 func tests(db *sql.DB, blockchain *blc.Blockchain) {
-	var memStats runtime.MemStats
 
-	runtime.ReadMemStats(&memStats)
+	alicePrivKey, alicePubKey, err := wallet.GenerateKeysFromPassword("alice")
+	bobPrivKey, bobPubKey, err := wallet.GenerateKeysFromPassword("bob")
+	johnPrivKey, johnPubKey, err := wallet.GenerateKeysFromPassword("john")
 
-	fmt.Println("NumGoroutine: ", runtime.NumGoroutine())
-	fmt.Printf("MemAlocada: %v bytes | MemTotalAlocada: %v bytes | MemSysUsed: %v bytes | GarbageCollections: %v\n",
-		memStats.Alloc, memStats.TotalAlloc, memStats.Sys, memStats.NumGC)
+	aliceAddress := wallet.PublicKeyCompressedToString(alicePubKey)
+	bobAddress := wallet.PublicKeyCompressedToString(bobPubKey)
+	johnAddress := wallet.PublicKeyCompressedToString(johnPubKey)
 
-	err := blockchain.AddBlock("Alice", "Bob", 50)
+	//Alice
+	tx1, err := blc.NewTransaction(blockchain,
+		aliceAddress,
+		bobAddress,
+		blc.BtcToSatoshis(0.5))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	runtime.ReadMemStats(&memStats)
-	fmt.Println("NumGoroutine: ", runtime.NumGoroutine())
-	fmt.Printf("MemAlocada: %v bytes | MemTotalAlocada: %v bytes | MemSysUsed: %v bytes | GarbageCollections: %v\n",
-		memStats.Alloc, memStats.TotalAlloc, memStats.Sys, memStats.NumGC)
+	tx1.Sign(alicePrivKey)
 
-	err = blockchain.AddBlock("Bob", "John", 20)
+	err = blockchain.AddBlock([]blc.Transaction{tx1})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	runtime.ReadMemStats(&memStats)
-	fmt.Println("NumGoroutine: ", runtime.NumGoroutine())
-	fmt.Printf("MemAlocada: %v bytes | MemTotalAlocada: %v bytes | MemSysUsed: %v bytes | GarbageCollections: %v\n",
-		memStats.Alloc, memStats.TotalAlloc, memStats.Sys, memStats.NumGC)
-
-	err = blockchain.AddBlock("John", "Doe", 10)
+	//Bob
+	tx2, err := blc.NewTransaction(blockchain,
+		bobAddress,
+		johnAddress,
+		blc.BtcToSatoshis(0.2))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	runtime.ReadMemStats(&memStats)
-	fmt.Println("NumGoroutine: ", runtime.NumGoroutine())
-	fmt.Printf("MemAlocada: %v bytes | MemTotalAlocada: %v bytes | MemSysUsed: %v bytes | GarbageCollections: %v\n",
-		memStats.Alloc, memStats.TotalAlloc, memStats.Sys, memStats.NumGC)
+	tx2.Sign(bobPrivKey)
 
-	err = blockchain.AddBlock("Doe", "Jane", 5)
+	err = blockchain.AddBlock([]blc.Transaction{tx2})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	time.Sleep(5 * time.Second)
+	//John
+	tx3, err := blc.NewTransaction(blockchain, johnAddress, "doe", blc.BtcToSatoshis(0.1))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	runtime.ReadMemStats(&memStats)
-	fmt.Println("NumGoroutine: ", runtime.NumGoroutine())
-	fmt.Printf("MemAlocada: %v bytes | MemTotalAlocada: %v bytes | MemSysUsed: %v bytes | GarbageCollections: %v\n",
-		memStats.Alloc, memStats.TotalAlloc, memStats.Sys, memStats.NumGC)
+	tx3.Sign(johnPrivKey)
+
+	tx4, err := blc.NewTransaction(blockchain, bobAddress, "jane", blc.BtcToSatoshis(0.1))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tx4.Sign(bobPrivKey)
+
+	err = blockchain.AddBlock([]blc.Transaction{tx3, tx4})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	isValid := blockchain.IsValid()
 	fmt.Println(isValid)

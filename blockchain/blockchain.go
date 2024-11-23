@@ -2,8 +2,15 @@ package blockchain
 
 import (
 	"database/sql"
+	"encoding/hex"
+	"errors"
 	"strings"
 	"time"
+)
+
+const (
+	RewardGenesis = 1000
+	RewardTo      = "028348e9b430ae9986a1d1f88abe6e0196bc0d3c332c2c4bf5f2852d6b742b87bd" //"alice"
 )
 
 type Blockchain struct {
@@ -13,22 +20,42 @@ type Blockchain struct {
 	db           *sql.DB
 }
 
-func (b *Blockchain) AddBlock(from, to string, amount float64) error {
-	blockData := map[string]interface{}{
-		"amount": amount,
-		"from":   from,
-		"to":     to,
+func CreateBlockchain(db *sql.DB, difficulty int) (*Blockchain, error) {
+	//tx, err := NewTransaction(, 100_000_000, 1000, "genesis")
+	tx := CoinbaseTx(RewardTo, "")
+
+	genesisBlock := Block{
+		Hash:         "0",
+		Transactions: []Transaction{tx},
+		Timestamp:    time.Now(),
+	}
+
+	err := InsertBlock(db, genesisBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Blockchain{
+		genesisBlock,
+		[]Block{genesisBlock},
+		difficulty,
+		db,
+	}, nil
+}
+
+func (b *Blockchain) AddBlock(txs []Transaction) error {
+	if len(b.Chain) == 0 {
+		return errors.New("no blockchain detected: create using --create-genesis-block")
 	}
 
 	lastBlock := b.Chain[len(b.Chain)-1]
 	newBlock := Block{
-		Data:         blockData,
+		Transactions: txs,
 		PreviousHash: lastBlock.Hash,
 		Timestamp:    time.Now().UTC(),
 	}
 
-	//newBlock.Hash = newBlock.Mine(b.difficulty)
-	newBlock.Pow, newBlock.Hash = newBlock.Mine(b.difficulty)
+	newBlock.Nonce, newBlock.Hash = newBlock.Mine(b.difficulty)
 	return b.SaveNewBlock(newBlock)
 }
 
@@ -39,10 +66,18 @@ func (b *Blockchain) IsValid() bool {
 		calculatedHash := currentBlock.CalculateHash()
 		prefix := strings.Repeat("0", b.difficulty)
 
+		//validate block
 		if currentBlock.Hash != calculatedHash ||
 			currentBlock.PreviousHash != previousBlock.Hash ||
 			!strings.HasPrefix(currentBlock.Hash, prefix) {
 			return false
+		}
+
+		//validate transactions
+		for _, tx := range currentBlock.Transactions {
+			if !tx.CheckIsValid() {
+				return false
+			}
 		}
 	}
 	return true
@@ -58,27 +93,84 @@ func (b *Blockchain) SaveNewBlock(block Block) error {
 	return nil
 }
 
-func CreateBlockchain(db *sql.DB, difficulty int) (*Blockchain, error) {
-	data := make(map[string]interface{})
-	data["amount"] = 1000.0
-	data["from"] = "Genesis"
-	data["to"] = "Alice"
+func (b *Blockchain) FindUnspentTransactions(address string) []Transaction {
+	var unspentTxs []Transaction
 
-	genesisBlock := Block{
-		Hash:      "0",
-		Data:      data,
-		Timestamp: time.Now(),
+	spentTXNs := make(map[string][]int)
+
+	for _, block := range b.Chain {
+		for _, tx := range block.Transactions {
+			txID := hex.EncodeToString(tx.ID)
+
+			for outIndex, output := range tx.Outputs {
+				// Se essa saída já foi gasta, ignore.
+				if spentIndexes, exists := spentTXNs[txID]; exists {
+					for _, spentIndex := range spentIndexes {
+						if spentIndex == outIndex {
+							continue
+						}
+					}
+				}
+
+				// Se a saída pertence ao endereço, adicione à lista de não gastos.
+				if output.CanBeUnlocked(address) {
+					unspentTxs = append(unspentTxs, tx)
+				}
+			}
+
+			if tx.IsCoinbase() == false {
+				for _, in := range tx.Inputs {
+					if in.CanUnlock(address) {
+						inTxID := hex.EncodeToString(in.ID)
+						spentTXNs[inTxID] = append(spentTXNs[inTxID], in.OutIdx)
+					}
+				}
+			}
+
+			if len(block.PreviousHash) == 0 {
+				break
+			}
+		}
 	}
 
-	err := InsertBlock(db, genesisBlock)
-	if err != nil {
-		return nil, err
+	return unspentTxs
+}
+
+func (chain *Blockchain) FindUTXO(address string) []TxOutput {
+	var UTXOs []TxOutput
+	unspentTransactions := chain.FindUnspentTransactions(address)
+
+	for _, tx := range unspentTransactions {
+		for _, out := range tx.Outputs {
+			if out.CanBeUnlocked(address) {
+				UTXOs = append(UTXOs, out)
+			}
+		}
 	}
 
-	return &Blockchain{
-		genesisBlock,
-		[]Block{genesisBlock},
-		difficulty,
-		db,
-	}, nil
+	return UTXOs
+}
+
+func (b *Blockchain) FindSpendableOutputs(address string, amount uint64) (uint64, map[string][]int) {
+	unspentOuts := make(map[string][]int)
+	var accumulated uint64
+
+	unspentTxs := b.FindUnspentTransactions(address)
+
+	for _, tx := range unspentTxs {
+		txID := hex.EncodeToString(tx.ID)
+
+		for outIdx, out := range tx.Outputs {
+			if out.CanBeUnlocked(address) && accumulated < amount {
+				accumulated += out.Value
+				unspentOuts[txID] = append(unspentOuts[txID], outIdx)
+
+				if accumulated >= amount {
+					break
+				}
+			}
+		}
+	}
+
+	return accumulated, unspentOuts
 }

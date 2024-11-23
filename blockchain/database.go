@@ -25,7 +25,7 @@ func ExecMigrations(db *sql.DB) error {
         data TEXT NOT NULL,
         previous_hash TEXT NOT NULL,
         timestamp DATETIME NOT NULL,
-        pow INTEGER NOT NULL
+        nonce INTEGER NOT NULL
     );`
 	//_, err := db.Exec(createBlocksTableSQL)
 	//if err != nil {
@@ -41,13 +41,13 @@ func ExecMigrations(db *sql.DB) error {
 }
 
 func InsertBlock(db *sql.DB, block Block) error {
-	jsonData, err := json.Marshal(block.Data)
+	jsonData, err := json.Marshal(block.Transactions)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	insertSQL := `INSERT INTO blocks (hash, data, previous_hash, timestamp, pow) VALUES (?, ?, ?, ?, ?)`
-	_, err = db.Exec(insertSQL, block.Hash, string(jsonData), block.PreviousHash, block.Timestamp, block.Pow)
+	insertSQL := `INSERT INTO blocks (hash, data, previous_hash, timestamp, nonce) VALUES (?, ?, ?, ?, ?)`
+	_, err = db.Exec(insertSQL, block.Hash, string(jsonData), block.PreviousHash, block.Timestamp, block.Nonce)
 	return err
 }
 
@@ -55,9 +55,9 @@ func GetBlock(db *sql.DB, hash string) (Block, error) {
 	var block Block
 	var jsonData string
 
-	row := db.QueryRow(`SELECT hash, data, previous_hash, timestamp, pow FROM blocks where hash = ?`, hash)
+	row := db.QueryRow(`SELECT hash, data, previous_hash, timestamp, nonce FROM blocks where hash = ?`, hash)
 
-	err := row.Scan(&block.Hash, &jsonData, &block.PreviousHash, &block.Timestamp, &block.Pow)
+	err := row.Scan(&block.Hash, &jsonData, &block.PreviousHash, &block.Timestamp, &block.Nonce)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return block, fmt.Errorf("block not found with this hash: %s", hash)
@@ -65,7 +65,7 @@ func GetBlock(db *sql.DB, hash string) (Block, error) {
 		return block, err
 	}
 
-	err = json.Unmarshal([]byte(jsonData), &block.Data)
+	err = json.Unmarshal([]byte(jsonData), &block.Transactions)
 	return block, err
 }
 
@@ -73,7 +73,7 @@ func LoadBlockchain(db *sql.DB, difficulty int) (*Blockchain, error) {
 	_blockchain := &Blockchain{}
 	var blocks []Block
 
-	query := `SELECT hash, data, previous_hash, timestamp, pow FROM blocks ORDER BY timestamp DESC LIMIT 100`
+	query := `SELECT hash, data, previous_hash, timestamp, nonce FROM blocks ORDER BY timestamp DESC LIMIT 100`
 
 	rows, err := db.Query(query)
 	if err != nil {
@@ -85,12 +85,12 @@ func LoadBlockchain(db *sql.DB, difficulty int) (*Blockchain, error) {
 		var block Block
 		var jsonData string
 
-		err := rows.Scan(&block.Hash, &jsonData, &block.PreviousHash, &block.Timestamp, &block.Pow)
+		err := rows.Scan(&block.Hash, &jsonData, &block.PreviousHash, &block.Timestamp, &block.Nonce)
 		if err != nil {
 			return _blockchain, err
 		}
 
-		err = json.Unmarshal([]byte(jsonData), &block.Data)
+		err = json.Unmarshal([]byte(jsonData), &block.Transactions)
 		if err != nil {
 			return _blockchain, err
 		}
@@ -113,10 +113,10 @@ func GetLastBlock(db *sql.DB) (Block, error) {
 	var block Block
 	var jsonData string
 
-	query := `SELECT hash, data, previous_hash, timestamp, pow FROM blocks ORDER BY timestamp DESC LIMIT 1`
+	query := `SELECT hash, data, previous_hash, timestamp, nonce FROM blocks ORDER BY timestamp DESC LIMIT 1`
 
 	row := db.QueryRow(query)
-	err := row.Scan(&block.Hash, &jsonData, &block.PreviousHash, &block.Timestamp, &block.Pow)
+	err := row.Scan(&block.Hash, &jsonData, &block.PreviousHash, &block.Timestamp, &block.Nonce)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return block, fmt.Errorf("block not found")
@@ -124,6 +124,6 @@ func GetLastBlock(db *sql.DB) (Block, error) {
 		return block, err
 	}
 
-	err = json.Unmarshal([]byte(jsonData), &block.Data)
+	err = json.Unmarshal([]byte(jsonData), &block.Transactions)
 	return block, err
 }
