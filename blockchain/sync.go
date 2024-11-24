@@ -12,7 +12,11 @@ func Synchronize(db *sql.DB, nodePool []string, difficulty int) error {
 
 	lastBlock, err := GetLastBlock(db)
 	if err != nil {
-		return err
+		if err.Error() == "block not found" {
+			lastBlock = Block{Hash: "0"}
+		} else {
+			return err
+		}
 	}
 
 	for _, nodeAddr := range nodePool {

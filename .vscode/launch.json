@@ -9,7 +9,15 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}"
+            "program": "${fileDirname}",
+            "args": [
+                //"--create-genesis-block", 
+                //"--tests-txs",
+                "--node-pool", "0.0.0.0:8765"
+            ],
+            "env": {
+                "PORT": "8764"
+            }
         }
     ]
 }

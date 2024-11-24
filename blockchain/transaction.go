@@ -92,15 +92,15 @@ func (tx *Transaction) SetID() error {
 
 func CoinbaseTx(toAddress, data string) Transaction {
 	if data == "" {
-		data = fmt.Sprintf("Coins to %s", toAddress)
+		data = fmt.Sprintf("Reward Coins to %s", toAddress)
 	}
 	//Since this is the "first" transaction of the block, it has no previous output to reference.
 	//This means that we initialize it with no ID, and it's OutputIndex is -1
-	txIn := TxInput{[]byte{}, -1, data, "genesis"}
+	txIn := TxInput{[]byte{}, -1, data, ""}
 
-	txOut := TxOutput{BtcToSatoshis(RewardGenesis), toAddress}
+	txOut := TxOutput{BtcToSatoshis(Reward), toAddress}
 
-	return Transaction{nil, time.Now(), []TxInput{txIn}, []TxOutput{txOut}}
+	return Transaction{[]byte("xCoinbaseTx"), time.Now(), []TxInput{txIn}, []TxOutput{txOut}}
 
 }
 
@@ -114,7 +114,7 @@ func (out *TxOutput) CanBeUnlocked(data string) bool {
 
 func (tx *Transaction) IsCoinbase() bool {
 	//This checks a transaction and will only return true if it is a newly minted "coin"
-	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].OutIdx == -1
+	return string(tx.ID) == "xCoinbaseTx" && len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].OutIdx == -1
 }
 
 func (tx *Transaction) Sign(privKey *ecdsa.PrivateKey) error {
@@ -124,15 +124,6 @@ func (tx *Transaction) Sign(privKey *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-
-	// Create hash signature with priv key
-	/*r, s, err := ecdsa.Sign(rand.Reader, privKey, hash)
-	if err != nil {
-		return err
-	}
-
-	// Compact signature
-	signature := append(r.Bytes(), s.Bytes()...)*/
 
 	// Add signature and pub key at txInput
 	for idx, _ := range tx.Inputs {

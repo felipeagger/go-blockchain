@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	RewardGenesis = 1000
-	RewardTo      = "028348e9b430ae9986a1d1f88abe6e0196bc0d3c332c2c4bf5f2852d6b742b87bd" //"alice"
+	Reward   = 3
+	RewardTo = "028348e9b430ae9986a1d1f88abe6e0196bc0d3c332c2c4bf5f2852d6b742b87bd" //"alice"
 )
 
 type Blockchain struct {
@@ -21,8 +21,11 @@ type Blockchain struct {
 }
 
 func CreateBlockchain(db *sql.DB, difficulty int) (*Blockchain, error) {
-	//tx, err := NewTransaction(, 100_000_000, 1000, "genesis")
-	tx := CoinbaseTx(RewardTo, "")
+	tx := Transaction{
+		ID:        []byte("genesis"),
+		Timestamp: time.Now(),
+		Outputs:   []TxOutput{{PubKey: RewardTo, Value: 100_000_000}},
+	}
 
 	genesisBlock := Block{
 		Hash:         "0",
@@ -43,7 +46,17 @@ func CreateBlockchain(db *sql.DB, difficulty int) (*Blockchain, error) {
 	}, nil
 }
 
-func (b *Blockchain) AddBlock(txs []Transaction) error {
+func (b *Blockchain) NewBlock(txs []Transaction) error {
+	var transactions []Transaction
+	txCoinbase := CoinbaseTx(RewardTo, "")
+
+	transactions = append(transactions, txCoinbase)
+	transactions = append(transactions, txs...)
+
+	return b.addBlock(transactions)
+}
+
+func (b *Blockchain) addBlock(txs []Transaction) error {
 	if len(b.Chain) == 0 {
 		return errors.New("no blockchain detected: create using --create-genesis-block")
 	}
@@ -75,8 +88,10 @@ func (b *Blockchain) IsValid() bool {
 
 		//validate transactions
 		for _, tx := range currentBlock.Transactions {
-			if !tx.CheckIsValid() {
-				return false
+			if !tx.IsCoinbase() {
+				if !tx.CheckIsValid() {
+					return false
+				}
 			}
 		}
 	}
