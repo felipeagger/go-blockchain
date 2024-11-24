@@ -1,7 +1,8 @@
 # go-blockchain
-A Simple Golang BlockChain
 
-Principal endpoint is cmd/miner
+A Simple Golang Proof of Work Sha256 BlockChain
+
+Principal endpoint is cmd/miner.
 
 # features
 
