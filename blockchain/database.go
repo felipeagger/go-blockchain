@@ -27,10 +27,6 @@ func ExecMigrations(db *sql.DB) error {
         timestamp DATETIME NOT NULL,
         nonce INTEGER NOT NULL
     );`
-	//_, err := db.Exec(createBlocksTableSQL)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
 
 	statement, err := db.Prepare(createBlocksTableSQL)
 	if err != nil {

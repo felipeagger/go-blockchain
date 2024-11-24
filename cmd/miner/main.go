@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
 	"log"
@@ -24,6 +23,7 @@ func main() {
 		"Cria o bloco genesis da blockchain")
 	difficulty := flag.Int("difficulty", 4, "Dificuldade de mineracao")
 	nodes := flag.String("node-pool", "", "Nodes do Pool")
+	txTests := flag.Bool("tests-txs", false, "Transacoes de teste")
 	flag.Parse()
 
 	nodePool := strings.Split(*nodes, ",")
@@ -40,20 +40,20 @@ func main() {
 		fmt.Println("Creating genesis block...")
 		blockchain, err = blc.CreateBlockchain(db, *difficulty)
 	} else {
+		err = blc.Synchronize(db, nodePool, *difficulty)
+		if err != nil {
+			log.Println(err)
+		}
+
 		blockchain, err = blc.LoadBlockchain(db, *difficulty)
 	}
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = blc.Synchronize(db, nodePool, *difficulty)
-	if err != nil {
-		log.Println(err)
-	}
-
 	go api()
 
-	//tests(db, blockchain)
+	tests(*txTests, blockchain)
 
 	isValid := blockchain.IsValid()
 	fmt.Println(isValid)
@@ -61,7 +61,10 @@ func main() {
 	startServer(blockchain, serverPort)
 }
 
-func tests(db *sql.DB, blockchain *blc.Blockchain) {
+func tests(execTxTests bool, blockchain *blc.Blockchain) {
+	if !execTxTests {
+		return
+	}
 
 	alicePrivKey, alicePubKey, err := wallet.GenerateKeysFromPassword("alice")
 	bobPrivKey, bobPubKey, err := wallet.GenerateKeysFromPassword("bob")
@@ -82,7 +85,7 @@ func tests(db *sql.DB, blockchain *blc.Blockchain) {
 
 	tx1.Sign(alicePrivKey)
 
-	err = blockchain.AddBlock([]blc.Transaction{tx1})
+	err = blockchain.NewBlock([]blc.Transaction{tx1})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,7 +101,7 @@ func tests(db *sql.DB, blockchain *blc.Blockchain) {
 
 	tx2.Sign(bobPrivKey)
 
-	err = blockchain.AddBlock([]blc.Transaction{tx2})
+	err = blockchain.NewBlock([]blc.Transaction{tx2})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -118,20 +121,11 @@ func tests(db *sql.DB, blockchain *blc.Blockchain) {
 
 	tx4.Sign(bobPrivKey)
 
-	err = blockchain.AddBlock([]blc.Transaction{tx3, tx4})
+	err = blockchain.NewBlock([]blc.Transaction{tx3, tx4})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	isValid := blockchain.IsValid()
 	fmt.Println(isValid)
-
-	//queryBlock, err := blc.GetBlock(db, block.Hash)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//
-	//fmt.Println(queryBlock)
-
-	//blockchain.AddBlock("", "", 0.001)
 }

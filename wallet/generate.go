@@ -76,7 +76,7 @@ func PublicKeyCompressedToString(pubKey *ecdsa.PublicKey) string {
 	return hex.EncodeToString(key)
 }
 
-// Assinar dados usando a chave privada
+// Sing data using private key
 func SignData(privKey *ecdsa.PrivateKey, data []byte) ([]byte, error) {
 	hash := sha256.Sum256(data)
 	r, s, err := ecdsa.Sign(rand.Reader, privKey, hash[:])

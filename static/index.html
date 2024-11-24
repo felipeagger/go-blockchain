@@ -138,7 +138,8 @@
                 <button type="button" class="btn btn-secondary btn-sm float-right" ng-click="closeDetails()">Fechar</button>
             </div>
             <div class="panel-content">
-                <p><strong>Hash:</strong> {{ selectedBlock.hash }}</p>
+                <p><strong>Hash:</strong> {{ selectedBlock.hash }} </p>
+                <p><strong>Hash Bloco Anterior:</strong> {{ selectedBlock.previousHash }} </p>
                 <p><strong>Nonce:</strong> {{ selectedBlock.nonce }}</p>
                 <p><strong>Data:</strong> {{ selectedBlock.timestamp | date:'yyyy-MM-dd HH:mm:ss' }}</p>
                 <p><strong>Transações:</strong></p>

@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-var (
-	MaxGoroutines, _ = strconv.Atoi(GetEnv("MAX_GOROUTINES", "1500"))
-)
-
 type Block struct {
 	Transactions []Transaction `json:"transactions"`
 	Hash         string        `json:"hash"`
