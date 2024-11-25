@@ -76,6 +76,10 @@ func (b *Blockchain) addBlock(txs []Transaction) error {
 }
 
 func (b *Blockchain) IsValid() bool {
+	if len(b.Chain) == 0 {
+		return true
+	}
+
 	for i := range b.Chain[1:] {
 		previousBlock := b.Chain[i]
 		currentBlock := b.Chain[i+1]
