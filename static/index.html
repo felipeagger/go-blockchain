@@ -12,6 +12,21 @@
             color: #f0e68c; /* cor do texto em tom de amarelo */
         }
 
+        .user-panel {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .list-group {
+            background-color: #1e1e1e;
+        }
+
+        .list-group-item {
+            background-color: #1e1e1e;
+        }   
+
         .form-container {
             background-color: #1e1e1e;
             padding: 20px;
@@ -82,8 +97,26 @@
 <body ng-controller="BlockchainController">
 <div class="container mt-5">
     <div class="row">
+
+        <!-- Painel de Usuários -->
+        <div class="col-md-3">
+            <div class="user-panel">
+                <h3 class="text-center">Usuários</h3>
+                <ul class="list-group">
+                    <li class="list-group-item" ng-repeat="wallet in wallets">
+                        <strong>{{ wallet.seed }}</strong>
+                        <br>
+                        Saldo: {{ wallet.balance | currency:'BTC ':8 }}
+                        <br>
+                        Endereço: 
+                        <span class="text-muted">{{ formatAddress(wallet.address) }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
         <!-- Formulário de Transações -->
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="form-container">
                 <h3 class="text-center">Enviar Nova Transação</h3>
                 <form ng-submit="submitTransaction()">
@@ -105,7 +138,7 @@
         </div>
 
         <!-- Grid de Blocos Recentes -->
-        <div class="col-md-8">
+        <div class="col-md-6">
             <div class="blocks-container">
                 <h3 class="text-center">Blocos Recentes</h3>
                 <div class="block-grid">
@@ -256,7 +289,7 @@
                     alert('Transação enviada com sucesso!');
                     $scope.transaction = { seed: '', to: '', amount: 0 };
                 }, function (error) {
-                    alert('Erro ao enviar transação!');
+                    alert('Erro ao enviar transação! ${error}');
                 });
         };
 
@@ -276,6 +309,27 @@
 
         loadBlocks();
         $interval(loadBlocks, 2000); // Atualiza a cada 2 segundo
+
+        // Atualizar Wallet a cada 2 segundo
+        $scope.wallets = [];
+        function loadBalance() {
+            $http.get('/api/wallet-balance')
+                .then(function (response) {
+                    $scope.wallets = response.data;
+                }, function (error) {
+                    console.error('Erro ao carregar wallets:', error);
+                });
+        }
+
+        loadBalance();
+        $interval(loadBalance, 2000); // Atualiza a cada 2 segundo
+
+        $scope.formatAddress = function(address) {
+        if (address.length > 16) {
+            return address.substring(0, 8) + "...." + address.substring(address.length - 8);
+        }
+        return address;
+    };
     });
 </script>
 </body>

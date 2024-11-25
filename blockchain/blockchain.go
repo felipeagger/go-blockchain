@@ -24,7 +24,7 @@ func CreateBlockchain(db *sql.DB, difficulty int) (*Blockchain, error) {
 	tx := Transaction{
 		ID:        []byte("genesis"),
 		Timestamp: time.Now(),
-		Outputs:   []TxOutput{{PubKey: RewardTo, Value: 100_000_000}},
+		Outputs:   []TxOutput{{PubKey: RewardTo, Value: 10_000_000_000}},
 	}
 
 	genesisBlock := Block{
@@ -51,7 +51,10 @@ func (b *Blockchain) NewBlock(txs []Transaction) error {
 	txCoinbase := CoinbaseTx(RewardTo, "")
 
 	transactions = append(transactions, txCoinbase)
-	transactions = append(transactions, txs...)
+
+	for _, tx := range txs {
+		transactions = append(transactions, tx)
+	}
 
 	return b.addBlock(transactions)
 }
@@ -113,16 +116,20 @@ func (b *Blockchain) FindUnspentTransactions(address string) []Transaction {
 
 	spentTXNs := make(map[string][]int)
 
-	for _, block := range b.Chain {
+	//for _, block := range b.Chain {
+	for i := len(b.Chain) - 1; i >= 0; i-- {
+		block := b.Chain[i]
 		for _, tx := range block.Transactions {
 			txID := hex.EncodeToString(tx.ID)
 
+			//Check Outputs
+		outputs:
 			for outIndex, output := range tx.Outputs {
 				// Se essa saída já foi gasta, ignore.
 				if spentIndexes, exists := spentTXNs[txID]; exists {
 					for _, spentIndex := range spentIndexes {
 						if spentIndex == outIndex {
-							continue
+							continue outputs
 						}
 					}
 				}
@@ -133,6 +140,7 @@ func (b *Blockchain) FindUnspentTransactions(address string) []Transaction {
 				}
 			}
 
+			//Check Inputs
 			if tx.IsCoinbase() == false {
 				for _, in := range tx.Inputs {
 					if in.CanUnlock(address) {
@@ -188,4 +196,21 @@ func (b *Blockchain) FindSpendableOutputs(address string, amount uint64) (uint64
 	}
 
 	return accumulated, unspentOuts
+}
+
+func (b *Blockchain) GetAddressBalance(address string) uint64 {
+	var accumulated uint64
+
+	unspentTxs := b.FindUnspentTransactions(address)
+
+	for _, tx := range unspentTxs {
+
+		for _, out := range tx.Outputs {
+			if out.CanBeUnlocked(address) {
+				accumulated += out.Value
+			}
+		}
+	}
+
+	return accumulated
 }

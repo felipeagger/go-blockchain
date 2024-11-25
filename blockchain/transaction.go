@@ -105,7 +105,7 @@ func CoinbaseTx(toAddress, data string) Transaction {
 }
 
 func (in *TxInput) CanUnlock(data string) bool {
-	return in.Signature == data
+	return in.PubKey == data //in.Signature == data
 }
 
 func (out *TxOutput) CanBeUnlocked(data string) bool {

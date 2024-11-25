@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	blc "github.com/felipeagger/go-blockchain/blockchain"
-	"github.com/felipeagger/go-blockchain/wallet"
 )
 
 type Transaction struct {
@@ -24,12 +21,28 @@ func api() {
 		w.Write(blocksBytes)
 	})
 
+	http.HandleFunc("/api/wallet-balance", GetWalletsBalance)
+
 	http.HandleFunc("/api/transaction", NewTransaction)
 
 	http.Handle("/", http.FileServer(http.Dir("/home/felipeagger/Dados/Dev/Projects/go-blockchain/static")))
 
 	fmt.Println("Servidor rodando em http://localhost:8088")
 	http.ListenAndServe(":8088", nil)
+}
+
+func GetWalletsBalance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Error method now allowed", http.StatusMethodNotAllowed)
+	}
+
+	walletsData := getWalletsData()
+
+	blocksBytes, _ := json.Marshal(walletsData)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(blocksBytes)
 }
 
 func NewTransaction(w http.ResponseWriter, r *http.Request) {
@@ -60,23 +73,4 @@ func NewTransaction(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "success"}`))
-}
-
-func createNewTransaction(tx Transaction) error {
-	privKey, pubKey, err := wallet.GenerateKeysFromPassword(tx.Seed)
-	if err != nil {
-		return err
-	}
-
-	from := wallet.PublicKeyCompressedToString(pubKey)
-
-	newTx, err := blc.NewTransaction(blockchain, from, tx.To, blc.BtcToSatoshis(tx.Amount))
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	newTx.Sign(privKey)
-
-	return blockchain.NewBlock([]blc.Transaction{newTx})
 }

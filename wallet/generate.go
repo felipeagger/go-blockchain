@@ -21,14 +21,13 @@ const (
 func GenerateKeysFromPassword(password string) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	seed := pbkdf2.Key([]byte(password), []byte(salt), iterations, 32, sha256.New)
 
-	// Generate private key
+	// Construir a chave privada determinística
 	curve := elliptic.P256()
 	n := curve.Params().N
 	d := new(big.Int).SetBytes(seed)
 	d.Mod(d, new(big.Int).Sub(n, big.NewInt(1))) // d = seed % (n-1)
 	d.Add(d, big.NewInt(1))                      // d = d + 1 (para evitar zero)
 
-	// Construir a chave privada
 	privKey := &ecdsa.PrivateKey{
 		D: d,
 		PublicKey: ecdsa.PublicKey{
@@ -44,7 +43,6 @@ func GenerateKeysFromPassword(password string) (*ecdsa.PrivateKey, *ecdsa.Public
 	return privKey, &privKey.PublicKey, nil
 }
 
-// Função para salvar a chave privada em um arquivo
 func SavePrivateKeyToFile(filename string, privKey *ecdsa.PrivateKey) error {
 	privKeyBytes := privKey.D.Bytes()
 	return os.WriteFile(filename, privKeyBytes, 0600)
