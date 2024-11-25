@@ -88,3 +88,8 @@ func BtcToSatoshis(btc float64) uint64 {
 	const satoshisPerBTC = 100_000_000
 	return uint64(btc * satoshisPerBTC)
 }
+
+func SatoshisToBtc(sats uint64) float64 {
+	const satoshisPerBTC = 100_000_000
+	return float64(sats / satoshisPerBTC)
+}

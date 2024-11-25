@@ -11,9 +11,9 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "args": [
-                //"--create-genesis-block", 
+                "--create-genesis-block", 
                 //"--tests-txs",
-                "--node-pool", "0.0.0.0:8765"
+                //"--node-pool", "0.0.0.0:8765"
             ],
             "env": {
                 "PORT": "8764"
